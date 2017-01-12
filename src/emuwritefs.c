@@ -51,14 +51,14 @@ typedef struct {
     list_node_t node;
 
     off_t index;
-    void* data;
+    void *data;
 } memblock_t;
 
 typedef struct {
     list_node_t node;
 
     int srcfd;
-    char* pathname;
+    char *pathname;
     struct stat stbuf;
 
     size_t memblocksz;
@@ -71,23 +71,24 @@ typedef struct {
 } fhandle_t;
 
 typedef struct {
-  list_node_t nodes;
+    list_node_t nodes;
 } pdata_t;
 
 static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
-		    struct fuse_file_info *fi);
+                    struct fuse_file_info *fi);
 
 static inline fhandle_t *get_fhandle(struct fuse_file_info *fi)
 {
-	return (fhandle_t *) (uintptr_t) fi->fh;
+    return (fhandle_t *) (uintptr_t) fi->fh;
 }
 
 static inline pdata_t *get_pdata(void)
 {
-	return (pdata_t *) fuse_get_context()->private_data;
+    return (pdata_t *) fuse_get_context()->private_data;
 }
 
-static int get_blocksz(int fd, off_t *psize) {
+static int get_blocksz(int fd, off_t *psize)
+{
     unsigned long numblocks;
     if (ioctl(fd, BLKGETSIZE, &numblocks) == -1)
         return -1;
@@ -97,9 +98,9 @@ static int get_blocksz(int fd, off_t *psize) {
     return 0;
 }
 
-int emuwritefs_add_node(void* handle, const char* pathname, const char* srcfile)
+int emuwritefs_add_node(void *handle, const char *pathname, const char *srcfile)
 {
-    pdata_t* pdata = (pdata_t*) handle;
+    pdata_t *pdata = (pdata_t *) handle;
     fnode_t *node = calloc(1, sizeof(fnode_t));
     if (!node)
         return -ENOMEM;
@@ -147,7 +148,8 @@ int emuwritefs_add_node(void* handle, const char* pathname, const char* srcfile)
     return 0;
 }
 
-static fnode_t* get_node(pdata_t *pdata, const char* pathname) {
+static fnode_t *get_node(pdata_t *pdata, const char *pathname)
+{
     fnode_t *node;
     list_for_every_entry(&pdata->nodes, node, fnode_t, node) {
         if (!strcmp(node->pathname, pathname))
@@ -157,7 +159,7 @@ static fnode_t* get_node(pdata_t *pdata, const char* pathname) {
     return NULL;
 }
 
-static inline memblock_t *get_memblock_by_index(fhandle_t* fh, off_t index)
+static inline memblock_t *get_memblock_by_index(fhandle_t *fh, off_t index)
 {
     memblock_t *memblock;
     list_for_every_entry(&fh->node->memblocks, memblock, memblock_t, node) {
@@ -168,29 +170,30 @@ static inline memblock_t *get_memblock_by_index(fhandle_t* fh, off_t index)
     return NULL;
 }
 
-static void* get_blockbuf(fhandle_t* fh, off_t offset, size_t* psize, int create) {
+static void *get_blockbuf(fhandle_t *fh, off_t offset, size_t *psize, int create)
+{
     off_t offset_rounddown = ROUNDDOWN(offset, fh->node->memblocksz);
     off_t blockid = offset_rounddown/fh->node->memblocksz;
     off_t block_offset = offset - offset_rounddown;
 
     memblock_t *memblock = get_memblock_by_index(fh, blockid);
     if (!memblock) {
-        if(!create) {
+        if (!create) {
             return NULL;
         }
 
         memblock = malloc(sizeof(*memblock));
-        if(!memblock)
+        if (!memblock)
             return NULL;
         memblock->data = malloc(fh->node->memblocksz);
-        if(!memblock->data) {
+        if (!memblock->data) {
             free(memblock);
             return NULL;
         }
         memblock->index = blockid;
 
         ssize_t num_bytes = pread(fh->fd, memblock->data, fh->node->memblocksz, offset_rounddown);
-        if(num_bytes<0) {
+        if (num_bytes<0) {
             free(memblock->data);
             free(memblock);
             return NULL;
@@ -204,17 +207,17 @@ static void* get_blockbuf(fhandle_t* fh, off_t offset, size_t* psize, int create
 }
 
 static void *xmp_init(struct fuse_conn_info *conn,
-		      struct fuse_config *cfg)
+                      struct fuse_config *cfg)
 {
-	(void) conn;
-	cfg->use_ino = 1;
-	cfg->nullpath_ok = 1;
+    (void) conn;
+    cfg->use_ino = 1;
+    cfg->nullpath_ok = 1;
 
-	return get_pdata();
+    return get_pdata();
 }
 
 static int xmp_getattr(const char *path, struct stat *stbuf,
-			struct fuse_file_info *fi)
+                       struct fuse_file_info *fi)
 {
     pdata_t *pdata = get_pdata();
 
@@ -240,35 +243,35 @@ static int xmp_getattr(const char *path, struct stat *stbuf,
 }
 
 static int xmp_readdir(const char *path, void *buf, fuse_fill_dir_t filler,
-		       off_t offset, struct fuse_file_info *fi,
-		       enum fuse_readdir_flags flags)
+                       off_t offset, struct fuse_file_info *fi,
+                       enum fuse_readdir_flags flags)
 {
-	(void) offset;
-	(void) fi;
-	(void) flags;
-	(void) path;
+    (void) offset;
+    (void) fi;
+    (void) flags;
+    (void) path;
 
     pdata_t *pdata = get_pdata();
 
-	filler(buf, ".", NULL, 0, 0);
-	filler(buf, "..", NULL, 0, 0);
+    filler(buf, ".", NULL, 0, 0);
+    filler(buf, "..", NULL, 0, 0);
 
     fnode_t *node;
     list_for_every_entry(&pdata->nodes, node, fnode_t, node) {
-    	filler(buf, node->pathname+1, NULL, 0, 0);
+        filler(buf, node->pathname+1, NULL, 0, 0);
     }
 
-	return 0;
+    return 0;
 }
 
 static int xmp_open(const char *path, struct fuse_file_info *fi)
 {
-	int fd;
+    int fd;
     pdata_t *pdata = get_pdata();
 
     fhandle_t *fh = malloc(sizeof(fhandle_t));
     if (fh == NULL)
-	    return -ENOMEM;
+        return -ENOMEM;
 
     // get node
     fnode_t *node = get_node(pdata, path);
@@ -280,30 +283,30 @@ static int xmp_open(const char *path, struct fuse_file_info *fi)
 
     // dup fd
     fd = dup(node->srcfd);
-	if (fd < 0) {
+    if (fd < 0) {
         free(fh);
-		return -errno;
+        return -errno;
     }
-	fh->fd = fd;
+    fh->fd = fd;
 
     // return file handle
     fi->fh = (uintptr_t)fh;
 
-	return 0;
+    return 0;
 }
 
 static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
-		    struct fuse_file_info *fi)
+                    struct fuse_file_info *fi)
 {
-	int res = 0;
+    int res = 0;
     fhandle_t *fh = get_fhandle(fi);
-	(void) path;
+    (void) path;
 
     while (size) {
         size_t membufsz;
         size_t readsize = 0;
         void *membuf = get_blockbuf(fh, offset, &membufsz, 0);
-        if(!membuf) {
+        if (!membuf) {
             off_t offset_rounddown = ROUNDDOWN(offset, fh->node->memblocksz);
             off_t block_offset = offset - offset_rounddown;
 
@@ -311,8 +314,7 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
             ssize_t num_bytes = pread(fh->fd, buf, readsize, offset);
             if (num_bytes<0)
                 return num_bytes;
-        }
-        else {
+        } else {
             readsize = MIN(size, membufsz);
             memcpy(buf, membuf, readsize);
         }
@@ -323,20 +325,20 @@ static int xmp_read(const char *path, char *buf, size_t size, off_t offset,
         res += readsize;
     }
 
-	return res;
+    return res;
 }
 
 static int xmp_write(const char *path, const char *buf, size_t size,
-		     off_t offset, struct fuse_file_info *fi)
+                     off_t offset, struct fuse_file_info *fi)
 {
-	int res = 0;
+    int res = 0;
     fhandle_t *fh = get_fhandle(fi);
     (void) path;
 
     while (size) {
         size_t membufsz;
         void *membuf = get_blockbuf(fh, offset, &membufsz, 1);
-        if(!membuf) {
+        if (!membuf) {
             return -EIO;
         }
 
@@ -348,47 +350,47 @@ static int xmp_write(const char *path, const char *buf, size_t size,
         res += writesize;
     }
 
-	return res;
+    return res;
 }
 
 static int xmp_flush(const char *path, struct fuse_file_info *fi)
 {
-	(void) path;
-	(void) fi;
+    (void) path;
+    (void) fi;
 
-	return 0;
+    return 0;
 }
 
 static int xmp_release(const char *path, struct fuse_file_info *fi)
 {
-	(void) path;
+    (void) path;
     fhandle_t *fh = get_fhandle(fi);
-	close(fh->fd);
+    close(fh->fd);
     free(fh);
 
-	return 0;
+    return 0;
 }
 
 static int xmp_fsync(const char *path, int isdatasync,
-		     struct fuse_file_info *fi)
+                     struct fuse_file_info *fi)
 {
-	(void) path;
-	(void) isdatasync;
-	(void) fi;
+    (void) path;
+    (void) isdatasync;
+    (void) fi;
 
-	return 0;
+    return 0;
 }
 
 static struct fuse_operations xmp_oper = {
-	.init           = xmp_init,
-	.getattr	= xmp_getattr,
-	.readdir	= xmp_readdir,
-	.open		= xmp_open,
-	.read		= xmp_read,
-	.write		= xmp_write,
-	.flush		= xmp_flush,
-	.release	= xmp_release,
-	.fsync		= xmp_fsync,
+    .init           = xmp_init,
+    .getattr    = xmp_getattr,
+    .readdir    = xmp_readdir,
+    .open       = xmp_open,
+    .read       = xmp_read,
+    .write      = xmp_write,
+    .flush      = xmp_flush,
+    .release    = xmp_release,
+    .fsync      = xmp_fsync,
 };
 
 void *emuwritefs_create_handle(void)
@@ -400,14 +402,14 @@ void *emuwritefs_create_handle(void)
 
 int emuwritefs_main(void *handle, const char *mountpoint)
 {
-    const char* argv[] = {
+    const char *argv[] = {
         "emuwritefs",
         mountpoint
     };
 
-	umask(0);
+    umask(0);
     optind = 1;
     opterr = 1;
     optopt = '?';
-	return fuse_main_real(2, (char**)argv, &xmp_oper, sizeof(xmp_oper), handle);
+    return fuse_main_real(2, (char **)argv, &xmp_oper, sizeof(xmp_oper), handle);
 }
