@@ -108,7 +108,7 @@ int emuwritefs_add_node(void *handle, const char *pathname, const char *srcfile)
     node->memblocksz = 4096;
 
     // open file
-    int rc = open(srcfile, O_RDONLY);
+    int rc = open(srcfile, O_RDONLY|O_CLOEXEC);
     if (rc < 0) {
         free(node);
         return rc;
